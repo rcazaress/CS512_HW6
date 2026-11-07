@@ -163,8 +163,9 @@ function createMesh({ positions, normals, tangents, texCoords, indices }) {
   return { vao, count: indices.length };
 }
 
-const cubeMesh = createMesh(createCube());
-const cylinderMesh = createMesh(createCylinder());
+const sphereMesh = createMesh(createSphere());
+const coneMesh = createMesh(createCone());
+const pyramidMesh = createMesh(createPyramid());
 
 function loadTexture(url) {
   const texture = gl.createTexture();
@@ -183,13 +184,30 @@ function loadTexture(url) {
   return texture;
 }
 
+function createVideoTexture(url) {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([128, 128, 255, 255]));
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+
+  const video = document.createElement('video');
+  video.src = url;
+  video.loop = true;
+  video.muted = true;
+  video.play();
+  return { texture, video };
+}
+
+const testTexture = loadTexture("test.jpg");
 const brickTexture = loadTexture("brick.png");
 const normalTexture = loadTexture("texture2.jpg");
+const catVideo = createVideoTexture("cat-tennis-cat.mp4");
 
 const BUMP_MAPPING = 0, NORMAL_MAPPING = 1;
 const objects = [
-  { mesh: cubeMesh, texture: brickTexture, mapping: BUMP_MAPPING, offset: [-1.8, 0, 0] },
-  { mesh: cylinderMesh, texture: normalTexture, mapping: NORMAL_MAPPING, offset: [1.8, 0, 0] }
+  { mesh: sphereMesh, texture: normalTexture, mapping: NORMAL_MAPPING, offset: [-2.5, 0, 0] },
+  { mesh: coneMesh, texture: testTexture, mapping: BUMP_MAPPING, offset: [0, 0, 0] },
+  { mesh: pyramidMesh, texture: catVideo.texture, mapping: BUMP_MAPPING, offset: [2.5, 0, 0] }
 ];
 
 gl.enable(gl.DEPTH_TEST);
@@ -251,6 +269,13 @@ function render(time) {
   const rotation = multiply(multiply(rotateY(dragRotY), rotateX(dragRotX)), axisRotation);
 
   gl.activeTexture(gl.TEXTURE0);
+
+  // every time this function is called again, check if the cat video has a new frame to render
+  if (catVideo.video.readyState >= catVideo.video.HAVE_CURRENT_DATA) {
+    gl.bindTexture(gl.TEXTURE_2D, catVideo.texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, catVideo.video); 
+  }
+
   for (const { mesh, texture, mapping, offset } of objects) {
     gl.uniformMatrix4fv(uModelView, false, multiply(view, multiply(translate(...offset), rotation)));
     gl.uniform1i(uMapping, mapping);
